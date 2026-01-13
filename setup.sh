@@ -25,7 +25,7 @@ conda install -c conda-forge vulkan-tools -y
 
 uv pip install jax[cuda12_local]==0.5.3 jaxlib mujoco-mjx mujoco mujoco_warp brax matplotlib
 
-git clone https://github.com/shacklettbp/madrona_mjx.git
+git clone https://github.com/joaoamcarvalho/madrona_mjx.git
 cd madrona_mjx
 git submodule update --init --recursive
 

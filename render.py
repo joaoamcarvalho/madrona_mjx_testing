@@ -8,7 +8,7 @@ os.environ["MADRONA_BVH_KERNEL_CACHE"] = "madrona_mjx/build/bvh_cache"
 
 # Set environment variables for memory management
 _GIB = 1 << 30  # 1 GiB
-os.environ["MADRONA_MWGPU_DEVICE_HEAP_SIZE"] = str(_GIB)
+os.environ["MADRONA_MWGPU_DEVICE_HEAP_SIZE"] = str(4 * _GIB)  # 4 GiB for raytracer
 os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.1'
 
 import time
@@ -34,6 +34,8 @@ np.random.seed(seed)
 # --- Configuration and Constants ---
 MESH_PATH = "./b88bcf33f25c6cb15b4f129f868dedb.obj"
 SCALE = 0.0251334948498337
+# MESH_PATH = "./diamond.obj"
+# SCALE = 1.0
 FOV_RAD = np.pi / 6
 FOVY_DEG = float(FOV_RAD * 180 / np.pi)
 
@@ -158,7 +160,7 @@ model = mujoco.MjModel.from_xml_string(xml_content)
 mjx_model = mjx.put_model(model)
 
 # Initialize Batch Renderer
-num_worlds = 256
+num_worlds = 1  # Reduced from 256 to work with raytracer
 renderer = BatchRenderer(
     mjx_model,
     gpu_id=0,
@@ -168,7 +170,7 @@ renderer = BatchRenderer(
     enabled_geom_groups=np.array([0, 1, 2]),
     enabled_cameras=None,
     add_cam_debug_geo=False,
-    use_rasterizer=True,  # Here to switch render mode
+    use_rasterizer=False,  # Here to switch render mode
 )
 
 # --- JAX Initialization and Execution ---
@@ -180,9 +182,9 @@ randomization_rng = jax.random.split(rng, num_worlds)
 # Apply domain randomization
 v_mjx_model, v_in_axes = domain_randomize(mjx_model, randomization_rng)
 
-@jax.jit
+# @jax.jit
 def render_envs(rng_keys, sys):
-    @jax.jit
+    # @jax.jit
     def init_single_env(rng, s):
         data = mjx.make_data(s)
         
