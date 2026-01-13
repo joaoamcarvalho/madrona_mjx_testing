@@ -2,8 +2,13 @@ import argparse
 import functools
 import os
 
+# CUDA kernels cache paths
+os.environ["MADRONA_MWGPU_KERNEL_CACHE"] = "madrona_mjx/build/kernel_cache"
+os.environ["MADRONA_BVH_KERNEL_CACHE"] = "madrona_mjx/build/bvh_cache"
+
 # Set environment variables for memory management
-os.environ["MADRONA_MWGPU_DEVICE_HEAP_SIZE"] = "1073741824"
+_GIB = 1 << 30  # 1 GiB
+os.environ["MADRONA_MWGPU_DEVICE_HEAP_SIZE"] = str(_GIB)
 os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.1'
 
 import time
@@ -19,6 +24,12 @@ import matplotlib.pyplot as plt
 
 from madrona_mjx.renderer import BatchRenderer
 from madrona_mjx.wrapper import load_model
+
+# fix seed for reproducibility
+seed = 42
+np.random.seed(seed)
+
+
 
 # --- Configuration and Constants ---
 MESH_PATH = "./b88bcf33f25c6cb15b4f129f868dedb.obj"
@@ -147,10 +158,11 @@ model = mujoco.MjModel.from_xml_string(xml_content)
 mjx_model = mjx.put_model(model)
 
 # Initialize Batch Renderer
+num_worlds = 256
 renderer = BatchRenderer(
     mjx_model,
     gpu_id=0,
-    num_worlds=1,
+    num_worlds=num_worlds,
     batch_render_view_width=400,
     batch_render_view_height=400,
     enabled_geom_groups=np.array([0, 1, 2]),
@@ -161,15 +173,16 @@ renderer = BatchRenderer(
 
 # --- JAX Initialization and Execution ---
 
-rng = jax.random.PRNGKey(seed=2)
+rng = jax.random.PRNGKey(seed=seed)
 rng, key = jax.random.split(rng)
-randomization_rng = jax.random.split(rng, 1)
+randomization_rng = jax.random.split(rng, num_worlds)
 
 # Apply domain randomization
 v_mjx_model, v_in_axes = domain_randomize(mjx_model, randomization_rng)
 
 @jax.jit
-def init(rng_keys, sys):
+def render_envs(rng_keys, sys):
+    @jax.jit
     def init_single_env(rng, s):
         data = mjx.make_data(s)
         
@@ -192,14 +205,12 @@ def init(rng_keys, sys):
     # Map the initialization over the batched system
     return jax.vmap(init_single_env, in_axes=[0, v_in_axes])(rng_keys, sys)
 
-# Run initialization
-s = time.time()
-v_mjx_data, render_token, rgb_batch, depth_batch = init(jp.array([key]), v_mjx_model)
-print("Render time:", time.time() - s)
-
-s = time.time()
-v_mjx_data, render_token, rgb_batch, depth_batch = init(jp.array([key]), v_mjx_model)
-print("Render time:", time.time() - s)
+# Render
+for _ in range(3):
+    s = time.time()
+    init_keys = jax.random.split(key, num_worlds)
+    v_mjx_data, render_token, rgb_batch, depth_batch = render_envs(init_keys, v_mjx_model)
+    print("Render time:", time.time() - s)
 
 
 # --- Visualization ---
@@ -219,10 +230,50 @@ axes[0].set_title('Rendered Color Image')
 axes[0].axis('off')
 
 if depth_img.size > 0 and depth_img.max() > 0:
+    
+    # filter out invalid depth values and more than 1 meter away
+    depth_img = np.where((depth_img > 0) & (depth_img <= 1.0), depth_img, 0)
+    # filter out points to be within a percentile range to remove outliers
+    z_min, z_max = np.percentile(depth_img[depth_img > 0], [3, 97])
+    depth_img = np.where((depth_img >= z_min) & (depth_img <= z_max), depth_img, 0)
+    
+    
     im = axes[1].imshow(depth_img, cmap='viridis')
     axes[1].set_title('Depth Map')
     axes[1].axis('off')
     plt.colorbar(im, ax=axes[1])
+    
+    # --- Point Cloud Visualization ---
+
+    # Camera intrinsics from FOV
+    if depth_img.ndim == 3:
+        depth_img = depth_img[..., 0]
+    height, width = depth_img.shape[-2:]
+    focal_length = height / (2 * np.tan(FOV_RAD / 2))
+    cx, cy = width / 2, height / 2
+
+    # Create pixel coordinates
+    u = np.arange(width)
+    v = np.arange(height)
+    uu, vv = np.meshgrid(u, v)
+
+    # Unproject depth to 3D points
+    z = depth_img    
+    x = (uu - cx) * z / focal_length
+    y = (vv - cy) * z / focal_length
+    points = np.stack([x, y, z], axis=-1).reshape(-1, 3)
+
+    # Filter out invalid/zero depth points
+    valid_mask = (z > 0).reshape(-1)
+    points = points[valid_mask]
+
+    # Create and visualize point cloud with trimesh
+    if points.shape[0] > 0:
+        point_cloud = trimesh.PointCloud(vertices=points)
+        point_cloud.show()
+    else:
+        print("No valid points in depth image") 
+    
 else:
     axes[1].text(0.5, 0.5, 'No valid depth data', 
                 ha='center', va='center', transform=axes[1].transAxes)
@@ -231,3 +282,4 @@ else:
 
 plt.tight_layout()
 plt.show()
+

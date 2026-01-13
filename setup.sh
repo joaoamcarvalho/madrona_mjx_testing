@@ -47,3 +47,5 @@ make -j
 cd ..
 uv pip install -e .
 
+cd ..
+uv pip install "pyglet<2"
