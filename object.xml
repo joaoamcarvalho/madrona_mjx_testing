@@ -10,9 +10,6 @@
   </visual>
 
   <asset>
-    <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
-    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
-    <material name="decoration" rgba=".3 .5 .7 1"/>
     <material name="self" rgba=".7 .5 .3 1"/>
     <material name="red" rgba="1. 0. 0. 1"/>
 
@@ -30,9 +27,7 @@
     <light name="light" pos="0 0 6"/>
     <camera name="fixed" pos="0 -4 1" zaxis="0 -1 0"/>
     <camera name="lookatobject" mode="targetbody" target="object" pos="0 -0.5 0.5"/>
-    <!-- <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane" material="grid"/> -->
-    <!-- <geom name="rail1" type="capsule" pos="0  .07 1" zaxis="1 0 0" size="0.02 2" material="decoration" /> -->
-    <!-- <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 2" material="decoration" /> -->
+    
     <body name="cart" pos="0 0 10">
       <joint name="slider" type="slide" limited="true" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-4"/>
       <geom name="cart" type="box" size="0.2 0.15 0.1" material="self" mass="1"/>
@@ -42,7 +37,7 @@
       </body>
     </body>
 
-    <body name="object" pos="0 0 0.0" euler="45 0 -90">
+    <body name="object" pos="0 0 0.0" euler="30 0 -90">
       <freejoint/>
       <geom type="mesh" mesh="obj" material="red"/>
     </body>
