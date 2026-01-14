@@ -14,6 +14,7 @@
     <material name="red" rgba="1. 0. 0. 1"/>
 
     <mesh name="obj" file="./b88bcf33f25c6cb15b4f129f868dedb.obj" scale="0.25 0.25 0.25"/>
+    <material name="obj_material" rgba="0.7 0.5 0.3 1" specular="0.5" shininess="0.5" reflectance=".2"/>
   </asset>
 
   <default>
@@ -37,7 +38,7 @@
       </body>
     </body>
 
-    <body name="object" pos="0 0 0.0" euler="30 0 -90">
+    <body name="object" pos="0 0 0.0" euler="10 20 -45">
       <freejoint/>
       <geom type="mesh" mesh="obj" material="red"/>
     </body>

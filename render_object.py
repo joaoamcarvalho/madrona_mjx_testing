@@ -129,7 +129,7 @@ if __name__ == '__main__':
     
     if args.use_rasterizer:  
       # filter out points to be within a percentile range to remove outliers
-      z_min, z_max = np.percentile(depth_img[depth_img > 0], [3, 97])
+      z_min, z_max = np.percentile(depth_img[depth_img > 0], [5, 95])
       depth_img = np.where((depth_img >= z_min) & (depth_img <= z_max), depth_img, 0)
     
     
